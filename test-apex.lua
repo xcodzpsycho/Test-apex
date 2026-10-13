@@ -1,9 +1,13 @@
--- APEX HUB Utility-Script (Fully Updated & Fixed - Sequential Coin Collection)
+-- ==========================================
+-- APEX HUB - FULL UPDATED SCRIPT (MM2)
+-- ==========================================
+
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
-local TweenService = game:GetService("TweenService") 
+local TweenService = game:GetService("TweenService")
+local VirtualUser = game:GetService("VirtualUser")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera 
@@ -18,9 +22,9 @@ local antiFlingEnabled = true
 local gunEspEnabled = false
 local autoGrabGunEnabled = false
 local killAllMurderEnabled = false
+local sheriffAutoKillEnabled = false
 local aimbotEnabled = false
 local autoCollectCoinsEnabled = false
-local noCooldownEnabled = true
 
 local spamVoteMap1Enabled = false
 local spamVoteMap2Enabled = false
@@ -196,7 +200,7 @@ function loadMainHub(scale)
     ContentFrame.Position = UDim2.new(0, math.floor(6 * scale), 0, topBarH + 4)
     ContentFrame.BackgroundTransparency = 1
     ContentFrame.BorderSizePixel = 0
-    ContentFrame.CanvasSize = UDim2.new(0, 0, 0, math.floor(1150 * scale))
+    ContentFrame.CanvasSize = UDim2.new(0, 0, 0, math.floor(1200 * scale))
     ContentFrame.ScrollBarThickness = math.floor(2 * scale) 
 
     local UIListLayout = Instance.new("UIListLayout", ContentFrame)
@@ -891,63 +895,137 @@ function loadMainHub(scale)
         end
     end)
 
-    -- NO COOLDOWN PATCH
+    -- Godmode / Anti-Death
     RunService.Stepped:Connect(function()
-        if noCooldownEnabled then
-            pcall(function()
-                local char = LocalPlayer.Character
-                if char then
-                    for _, tool in ipairs(char:GetChildren()) do
-                        if tool:IsA("Tool") then
-                            if tool:FindFirstChild("Cooldown") then tool.Cooldown.Value = 0 end
-                            if tool:FindFirstChild("Debounce") then tool.Debounce.Value = false end
-                        end
-                    end
+        if autoCollectCoinsEnabled then
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                local humanoid = LocalPlayer.Character.Humanoid
+                if humanoid.Health < humanoid.MaxHealth and humanoid.Health > 0 then
+                    humanoid.Health = humanoid.MaxHealth
                 end
-            end)
+                if humanoid:GetState() == Enum.HumanoidStateType.Dead then
+                    humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+                end
+            end
         end
     end)
 
-    -- AUTO COLLECT COINS (Eins nach dem anderen sammeln, bis max 40 Coins)
+    local function isInLobby()
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not root then return false end
+        
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj.Name == "RegularLobby" then
+                if obj:IsA("Model") or obj:IsA("Folder") then
+                    for _, part in ipairs(obj:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            if (root.Position - part.Position).Magnitude < 40 then
+                                return true
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        return false
+    end
+
+    local function hasWeaponEquippedOrInInventory()
+        local char = LocalPlayer.Character
+        local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+        
+        local function scanContainer(container)
+            if not container then return false end
+            for _, item in ipairs(container:GetChildren()) do
+                if item:IsA("Tool") then
+                    local name = item.Name:lower()
+                    if name:find("gun") or name:find("revolver") or name:find("sheriff") or name:find("knife") or name:find("murder") then
+                        return true
+                    end
+                end
+            end
+            return false
+        end
+        
+        return scanContainer(char) or scanContainer(backpack)
+    end
+
+    local function getActiveCoins()
+        local coins = {}
+        if hasWeaponEquippedOrInInventory() or isInLobby() then
+            return coins 
+        end
+
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if not autoCollectCoinsEnabled then break end
+            
+            local inLobbyHierarchy = false
+            local p = obj.Parent
+            while p and p ~= workspace do
+                if p.Name == "RegularLobby" then
+                    inLobbyHierarchy = true
+                    break
+                end
+                p = p.Parent
+            end
+            
+            if not inLobbyHierarchy then
+                local name = obj.Name:lower()
+                if name == "coin_object" or name == "coinvisual" or name == "coin" or name:find("coin") then
+                    local part = nil
+                    if obj:IsA("BasePart") then
+                        part = obj
+                    elseif obj:IsA("Model") and obj.PrimaryPart then
+                        part = obj.PrimaryPart
+                    else
+                        part = obj:FindFirstChildWhichIsA("BasePart")
+                    end
+                    if part and part.Parent and part.Transparency < 1 then
+                        table.insert(coins, part)
+                    end
+                end
+            end
+        end
+        return coins
+    end
+
     task.spawn(function()
         while true do
             task.wait(0.3)
             pcall(function()
-                if autoCollectCoinsEnabled then
-                    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-                    local gameGui = playerGui and playerGui:FindFirstChild("GameGUI")
-                    local currentCoins = 0
-                    if gameGui then
-                        local coinContainer = gameGui:FindFirstChild("CoinContainer") or gameGui:FindFirstChild("Coins")
-                        if coinContainer and coinContainer:FindFirstChild("TextLabel") then
-                            local text = coinContainer.TextLabel.Text
-                            local num = tonumber(text:match("(%d+)"))
-                            if num then currentCoins = num end
-                        end
-                    end
-
-                    if currentCoins < 40 then
-                        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                        if root then
-                            local nearestPart = nil
-                            local shortestDist = 300
-
-                            for _, obj in ipairs(workspace:GetDescendants()) do
-                                if obj.Name == "CoinVisual" or obj.Name == "Coin" or obj.Name:lower():find("coin") then
-                                    local part = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
-                                    if part then
-                                        local dist = (part.Position - root.Position).Magnitude
-                                        if dist < shortestDist then
-                                            shortestDist = dist
-                                            nearestPart = part
-                                        end
+                if autoCollectCoinsEnabled and not isInLobby() then
+                    local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+                    local hrp = char:WaitForChild("HumanoidRootPart", 5)
+                    
+                    if hrp and not hasWeaponEquippedOrInInventory() then
+                        local coins = getActiveCoins()
+                        if #coins == 0 then
+                            task.wait(0.5)
+                        else
+                            table.sort(coins, function(a, b)
+                                return (hrp.Position - a.Position).Magnitude < (hrp.Position - b.Position).Magnitude
+                            end)
+                            local targetCoin = coins[1]
+                            if targetCoin and targetCoin.Parent then
+                                local distance = (hrp.Position - targetCoin.Position).Magnitude
+                                local speed = 35
+                                local timeToTravel = distance / speed
+                                if timeToTravel < 0.2 then timeToTravel = 0.2 end
+                                
+                                local tween = TweenService:Create(hrp, TweenInfo.new(timeToTravel, Enum.EasingStyle.Linear), {CFrame = targetCoin.CFrame})
+                                tween:Play()
+                                
+                                while tween.PlaybackState == Enum.PlaybackState.Playing and autoCollectCoinsEnabled do
+                                    if not targetCoin.Parent or not LocalPlayer.Character or LocalPlayer.Character ~= char or hasWeaponEquippedOrInInventory() or isInLobby() then
+                                        tween:Cancel()
+                                        break
                                     end
+                                    task.wait(0.05)
                                 end
-                            end
-
-                            if nearestPart then
-                                firetouchinterest(root, nearestPart, 0)
-                                firetouchinterest(root, nearestPart, 1)
+                                task.wait(0.1)
+                            else
+                                task.wait(0.2)
                             end
                         end
                     end
@@ -1050,7 +1128,20 @@ function loadMainHub(scale)
         end)
     end)
 
-    -- KILL ALL FOR MURDERER
+    -- UNIVERSELLE WERKZEUG-AKTIVIERUNG (PC + MOBILE / TOUCH KOMPATIBEL)
+    local function triggerWeapon(tool, char)
+        if not tool or not char then return end
+        tool.Parent = char
+        pcall(function()
+            tool:Activate()
+        end)
+        pcall(function()
+            VirtualUser:Button1Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+            VirtualUser:Button1Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        end)
+    end
+
+    -- KILL ALL FOR MURDERER (Mit Mobile Support)
     task.spawn(function()
         while true do
             pcall(function()
@@ -1066,8 +1157,7 @@ function loadMainHub(scale)
                                     local pRole, _ = getPlayerRole(p)
                                     if pRole ~= "Murderer" then
                                         myRoot.CFrame = p.Character.HumanoidRootPart.CFrame
-                                        knife.Parent = myChar
-                                        knife:Activate()
+                                        triggerWeapon(knife, myChar)
                                         task.wait(0.05)
                                     end
                                 end
@@ -1080,7 +1170,38 @@ function loadMainHub(scale)
         end
     end)
 
-    -- 1ST PERSON AIMBOT (Mit Prädiktion)
+    -- SHERIFF AUTO KILL (Mit Mobile Support & Abstand)
+    task.spawn(function()
+        while true do
+            pcall(function()
+                if sheriffAutoKillEnabled then
+                    local role, _ = getPlayerRole(LocalPlayer)
+                    if role == "Sheriff" then
+                        local myChar = LocalPlayer.Character
+                        local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
+                        local gun = myChar and myChar:FindFirstChildOfClass("Tool") or LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
+                        
+                        if myRoot and gun then
+                            for _, p in ipairs(Players:GetPlayers()) do
+                                if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                                    local pRole, _ = getPlayerRole(p)
+                                    if pRole == "Murderer" then
+                                        local targetRoot = p.Character.HumanoidRootPart
+                                        myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 5)
+                                        triggerWeapon(gun, myChar)
+                                        task.wait(0.05)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+            task.wait(0.3)
+        end
+    end)
+
+    -- 1ST PERSON AIMBOT (Mit Mobile Support)
     RunService.RenderStepped:Connect(function()
         pcall(function()
             if aimbotEnabled then
@@ -1130,8 +1251,7 @@ function loadMainHub(scale)
                         if myRole == "Sheriff" or myRole == "Murderer" then
                             local weapon = myChar:FindFirstChildOfClass("Tool") or LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
                             if weapon then
-                                weapon.Parent = myChar
-                                weapon:Activate()
+                                triggerWeapon(weapon, myChar)
                             end
                         end
                     end
@@ -1220,7 +1340,7 @@ function loadMainHub(scale)
                                 if billboards[player] then billboards[player]:Destroy(); billboards[player] = nil end
                             end
                         else
-                            cleanupPlayer(player)
+                            if billboards[player] then billboards[player]:Destroy(); billboards[player] = nil end
                         end
                     end
                 end 
@@ -1307,6 +1427,7 @@ function loadMainHub(scale)
     createButton("Auto Grab Gun", function(state) autoGrabGunEnabled = state end, true, autoGrabGunEnabled)
     createButton("Auto Collect Coins", function(state) autoCollectCoinsEnabled = state end, true, autoCollectCoinsEnabled)
     createButton("Kill All (Murder)", function(state) killAllMurderEnabled = state end, true, killAllMurderEnabled)
+    createButton("Sheriff Auto Kill", function(state) sheriffAutoKillEnabled = state end, true, sheriffAutoKillEnabled)
     createButton("1st Person Aimbot", function(state) aimbotEnabled = state end, true, aimbotEnabled)
 
     createButton("Spam Vote Map 1", function(state) spamVoteMap1Enabled = state end, true, spamVoteMap1Enabled)
@@ -1359,6 +1480,7 @@ function loadMainHub(scale)
     createRightButton("Auto Grab Gun", function(state) autoGrabGunEnabled = state end, true, autoGrabGunEnabled)
     createRightButton("Auto Collect Coins", function(state) autoCollectCoinsEnabled = state end, true, autoCollectCoinsEnabled)
     createRightButton("Kill All (Murder)", function(state) killAllMurderEnabled = state end, true, killAllMurderEnabled)
+    createRightButton("Sheriff Auto Kill", function(state) sheriffAutoKillEnabled = state end, true, sheriffAutoKillEnabled)
     createRightButton("1st Person Aimbot", function(state) aimbotEnabled = state end, true, aimbotEnabled)
 
     createRightButton("Spam Vote Map 1", function(state) spamVoteMap1Enabled = state end, true, spamVoteMap1Enabled)
