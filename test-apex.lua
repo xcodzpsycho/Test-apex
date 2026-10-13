@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
-local VirtualUser = game:GetService("VirtualUser")
+local ContextActionService = game:GetService("ContextActionService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera 
@@ -41,6 +41,7 @@ local tpVisualPartGreen = nil
 
 local registeredToggles = {}
 local registeredSpeedInputs = {} 
+local ACTION_NAME = "ApexDisablePlayerControls"
 
 local themes = {
     Dark = { Primary = Color3.fromRGB(15, 15, 15), TopGrad1 = Color3.fromRGB(40, 40, 40), TopGrad2 = Color3.fromRGB(20, 20, 20), Stroke = Color3.fromRGB(70, 70, 70), ButtonOn = Color3.fromRGB(40, 160, 90), ButtonOff = Color3.fromRGB(25, 25, 25) },
@@ -910,6 +911,7 @@ function loadMainHub(scale)
         end
     end)
 
+    -- Hilfsfunktion: Prüft, ob sich der Spieler in der Lobby (RegularLobby) befindet
     local function isInLobby()
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -931,6 +933,7 @@ function loadMainHub(scale)
         return false
     end
 
+    -- Hilfsfunktion: Prüft, ob der Spieler eine Waffe besitzt
     local function hasWeaponEquippedOrInInventory()
         local char = LocalPlayer.Character
         local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
@@ -951,6 +954,7 @@ function loadMainHub(scale)
         return scanContainer(char) or scanContainer(backpack)
     end
 
+    -- Auto Collect Coins Logik
     local function getActiveCoins()
         local coins = {}
         if hasWeaponEquippedOrInInventory() or isInLobby() then
@@ -1128,20 +1132,7 @@ function loadMainHub(scale)
         end)
     end)
 
-    -- UNIVERSELLE WERKZEUG-AKTIVIERUNG (PC + MOBILE / TOUCH KOMPATIBEL)
-    local function triggerWeapon(tool, char)
-        if not tool or not char then return end
-        tool.Parent = char
-        pcall(function()
-            tool:Activate()
-        end)
-        pcall(function()
-            VirtualUser:Button1Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-            VirtualUser:Button1Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-        end)
-    end
-
-    -- KILL ALL FOR MURDERER (Mit Mobile Support)
+    -- KILL ALL FOR MURDERER
     task.spawn(function()
         while true do
             pcall(function()
@@ -1157,7 +1148,8 @@ function loadMainHub(scale)
                                     local pRole, _ = getPlayerRole(p)
                                     if pRole ~= "Murderer" then
                                         myRoot.CFrame = p.Character.HumanoidRootPart.CFrame
-                                        triggerWeapon(knife, myChar)
+                                        knife.Parent = myChar
+                                        knife:Activate()
                                         task.wait(0.05)
                                     end
                                 end
@@ -1170,7 +1162,7 @@ function loadMainHub(scale)
         end
     end)
 
-    -- SHERIFF AUTO KILL (Mit Mobile Support & Abstand)
+    -- SHERIFF AUTO KILL (Platziert dich vor dem Mörder und feuert automatisch ab – plattformunabhängig für Handy/Tablet & PC)
     task.spawn(function()
         while true do
             pcall(function()
@@ -1188,7 +1180,14 @@ function loadMainHub(scale)
                                     if pRole == "Murderer" then
                                         local targetRoot = p.Character.HumanoidRootPart
                                         myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 5)
-                                        triggerWeapon(gun, myChar)
+                                        gun.Parent = myChar
+                                        
+                                        -- Automatisches Auslösen für alle Plattformen (PC, Mobile, Console)
+                                        gun:Activate()
+                                        pcall(function()
+                                            gun:FireServer(targetRoot.Position)
+                                        end)
+                                        
                                         task.wait(0.05)
                                     end
                                 end
@@ -1201,7 +1200,7 @@ function loadMainHub(scale)
         end
     end)
 
-    -- 1ST PERSON AIMBOT (Mit Mobile Support)
+    -- 1ST PERSON AIMBOT (Mit automatischem Schießen/Aktivieren für Mobile & PC)
     RunService.RenderStepped:Connect(function()
         pcall(function()
             if aimbotEnabled then
@@ -1251,7 +1250,11 @@ function loadMainHub(scale)
                         if myRole == "Sheriff" or myRole == "Murderer" then
                             local weapon = myChar:FindFirstChildOfClass("Tool") or LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
                             if weapon then
-                                triggerWeapon(weapon, myChar)
+                                weapon.Parent = myChar
+                                weapon:Activate()
+                                pcall(function()
+                                    weapon:FireServer(predictedPos)
+                                end)
                             end
                         end
                     end
