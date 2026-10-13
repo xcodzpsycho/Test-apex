@@ -1,5 +1,5 @@
 -- ==========================================
--- APEX HUB - FULLY FIXED MOBILE SCRIPT (MM2)
+-- APEX HUB - MOBILE SHOOTING & STUCK FIX (MM2)
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
-local VirtualUser = game:GetService("VirtualUser")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera 
@@ -1132,9 +1132,10 @@ function loadMainHub(scale)
         end)
     end)
 
-    -- KILL ALL FOR MURDERER
+    -- KILL ALL FOR MURDERER (Mit direktem Mobile-Input-Trigger)
     task.spawn(function()
         while true do
+            task.wait(0.5)
             pcall(function()
                 if killAllMurderEnabled then
                     local role, _ = getPlayerRole(LocalPlayer)
@@ -1151,8 +1152,8 @@ function loadMainHub(scale)
                                     if pRole ~= "Murderer" then
                                         myRoot.CFrame = p.Character.HumanoidRootPart.CFrame
                                         knife:Activate()
-                                        VirtualUser:Button1Down(Vector2.new(500, 500), Camera.CFrame)
-                                        VirtualUser:Button1Up(Vector2.new(500, 500), Camera.CFrame)
+                                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+                                        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
                                         task.wait(0.05)
                                     end
                                 end
@@ -1161,13 +1162,13 @@ function loadMainHub(scale)
                     end
                 end
             end)
-            task.wait(0.5)
         end
     end)
 
-    -- SHERIFF AUTO KILL (Mobil-kompatibel, zieht die Waffe nur kurz an und feuert per Touch/Click-Simulation)
+    -- SHERIFF AUTO KILL (Mobil-fix: Simuliert echten Touch/Click direkt auf den Bildschirm für MM2)
     task.spawn(function()
         while true do
+            task.wait(0.3)
             pcall(function()
                 if sheriffAutoKillEnabled then
                     local role, _ = getPlayerRole(LocalPlayer)
@@ -1190,8 +1191,9 @@ function loadMainHub(scale)
                                         pcall(function()
                                             gun:FireServer(targetRoot.Position)
                                         end)
-                                        VirtualUser:Button1Down(Vector2.new(500, 500), Camera.CFrame)
-                                        VirtualUser:Button1Up(Vector2.new(500, 500), Camera.CFrame)
+                                        -- Simulierte Bildschirmberührung für mobile Schuss-Buttons in MM2
+                                        VirtualInputManager:SendMouseButtonEvent(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2, 0, true, game, 0)
+                                        VirtualInputManager:SendMouseButtonEvent(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2, 0, false, game, 0)
                                         
                                         task.wait(0.1)
                                     end
@@ -1201,11 +1203,10 @@ function loadMainHub(scale)
                     end
                 end
             end)
-            task.wait(0.3)
         end
     end)
 
-    -- 1ST PERSON AIMBOT (Mit automatischem Schießen für Mobile & PC)
+    -- 1ST PERSON AIMBOT (Mit Mobile Touch-Trigger)
     RunService.RenderStepped:Connect(function()
         pcall(function()
             if aimbotEnabled then
@@ -1260,8 +1261,8 @@ function loadMainHub(scale)
                                 pcall(function()
                                     weapon:FireServer(predictedPos)
                                 end)
-                                VirtualUser:Button1Down(Vector2.new(500, 500), Camera.CFrame)
-                                VirtualUser:Button1Up(Vector2.new(500, 500), Camera.CFrame)
+                                VirtualInputManager:SendMouseButtonEvent(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2, 0, true, game, 0)
+                                VirtualInputManager:SendMouseButtonEvent(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2, 0, false, game, 0)
                             end
                         end
                     end
@@ -1536,5 +1537,5 @@ function loadMainHub(scale)
     createFlingDropdown(RightButtonsContainer) 
 
     Players.PlayerRemoving:Connect(cleanupPlayer)
-    print("APEX HUB successfully loaded!")
+    print("APEX HUB successfully loaded JA!")
 end
