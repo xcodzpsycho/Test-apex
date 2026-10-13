@@ -1,5 +1,5 @@
 -- ==========================================
--- APEX HUB - FULL UPDATED SCRIPT (MM2)
+-- APEX HUB - FULLY FIXED MOBILE SCRIPT (MM2)
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -7,7 +7,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
-local ContextActionService = game:GetService("ContextActionService")
+local VirtualUser = game:GetService("VirtualUser")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera 
@@ -41,7 +41,6 @@ local tpVisualPartGreen = nil
 
 local registeredToggles = {}
 local registeredSpeedInputs = {} 
-local ACTION_NAME = "ApexDisablePlayerControls"
 
 local themes = {
     Dark = { Primary = Color3.fromRGB(15, 15, 15), TopGrad1 = Color3.fromRGB(40, 40, 40), TopGrad2 = Color3.fromRGB(20, 20, 20), Stroke = Color3.fromRGB(70, 70, 70), ButtonOn = Color3.fromRGB(40, 160, 90), ButtonOff = Color3.fromRGB(25, 25, 25) },
@@ -1098,7 +1097,8 @@ function loadMainHub(scale)
                             local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                             if myRoot then
                                 local dist = (targetPart.Position - myRoot.Position).Magnitude
-                                if dist < 250 and not isTeleportingForGun then
+                                local distThreshold = (typeof(dist) == "number") and dist or 0
+                                if distThreshold < 250 and not isTeleportingForGun then
                                     isTeleportingForGun = true
                                     grabbedGuns[obj] = true 
                                     local safePos = myRoot.CFrame
@@ -1143,13 +1143,16 @@ function loadMainHub(scale)
                         local myRoot = myChar and myChar:FindFirstChild("HumanoidRootPart")
                         local knife = myChar and myChar:FindFirstChildOfClass("Tool") or LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
                         if myRoot and knife then
+                            knife.Parent = myChar
                             for _, p in ipairs(Players:GetPlayers()) do
+                                if not killAllMurderEnabled then break end
                                 if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
                                     local pRole, _ = getPlayerRole(p)
                                     if pRole ~= "Murderer" then
                                         myRoot.CFrame = p.Character.HumanoidRootPart.CFrame
-                                        knife.Parent = myChar
                                         knife:Activate()
+                                        VirtualUser:Button1Down(Vector2.new(500, 500), Camera.CFrame)
+                                        VirtualUser:Button1Up(Vector2.new(500, 500), Camera.CFrame)
                                         task.wait(0.05)
                                     end
                                 end
@@ -1162,7 +1165,7 @@ function loadMainHub(scale)
         end
     end)
 
-    -- SHERIFF AUTO KILL (Platziert dich vor dem Mörder und feuert automatisch ab – plattformunabhängig für Handy/Tablet & PC)
+    -- SHERIFF AUTO KILL (Mobil-kompatibel, zieht die Waffe nur kurz an und feuert per Touch/Click-Simulation)
     task.spawn(function()
         while true do
             pcall(function()
@@ -1175,6 +1178,7 @@ function loadMainHub(scale)
                         
                         if myRoot and gun then
                             for _, p in ipairs(Players:GetPlayers()) do
+                                if not sheriffAutoKillEnabled then break end
                                 if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
                                     local pRole, _ = getPlayerRole(p)
                                     if pRole == "Murderer" then
@@ -1182,13 +1186,14 @@ function loadMainHub(scale)
                                         myRoot.CFrame = targetRoot.CFrame * CFrame.new(0, 0, 5)
                                         gun.Parent = myChar
                                         
-                                        -- Automatisches Auslösen für alle Plattformen (PC, Mobile, Console)
                                         gun:Activate()
                                         pcall(function()
                                             gun:FireServer(targetRoot.Position)
                                         end)
+                                        VirtualUser:Button1Down(Vector2.new(500, 500), Camera.CFrame)
+                                        VirtualUser:Button1Up(Vector2.new(500, 500), Camera.CFrame)
                                         
-                                        task.wait(0.05)
+                                        task.wait(0.1)
                                     end
                                 end
                             end
@@ -1200,7 +1205,7 @@ function loadMainHub(scale)
         end
     end)
 
-    -- 1ST PERSON AIMBOT (Mit automatischem Schießen/Aktivieren für Mobile & PC)
+    -- 1ST PERSON AIMBOT (Mit automatischem Schießen für Mobile & PC)
     RunService.RenderStepped:Connect(function()
         pcall(function()
             if aimbotEnabled then
@@ -1255,6 +1260,8 @@ function loadMainHub(scale)
                                 pcall(function()
                                     weapon:FireServer(predictedPos)
                                 end)
+                                VirtualUser:Button1Down(Vector2.new(500, 500), Camera.CFrame)
+                                VirtualUser:Button1Up(Vector2.new(500, 500), Camera.CFrame)
                             end
                         end
                     end
@@ -1316,8 +1323,9 @@ function loadMainHub(scale)
                             local head = character:FindFirstChild("Head")
                             if head then
                                 local bgName = "ApexBillboard_" .. player.Name
-                                if not billboards[player] or billboards[player].Adornee ~= head then
-                                    if billboards[player] then billboards[player]:Destroy() end
+                                local bill = billboards[player]
+                                if not bill or bill.Adornee ~= head then
+                                    if bill then bill:Destroy() end
                                     local bg = Instance.new("BillboardGui", character)
                                     bg.Name = bgName
                                     bg.Size = UDim2.new(0, 120, 0, 40)
@@ -1333,17 +1341,22 @@ function loadMainHub(scale)
                                     tl.TextStrokeTransparency = 0.2
                                     billboards[player] = bg
                                 end
-                                local tl = billboards[player]:FindFirstChildOfClass("TextLabel")
-                                if tl then
-                                    tl.Text = player.Name .. "\n[" .. role .. "]"
-                                    tl.TextColor3 = roleColor
+                                local currentBill = billboards[player]
+                                if currentBill then
+                                    local tl = currentBill:FindFirstChildOfClass("TextLabel")
+                                    if tl then
+                                        tl.Text = player.Name .. "\n[" .. role .. "]"
+                                        tl.TextColor3 = roleColor
+                                    end
+                                    currentBill.Enabled = true
                                 end
-                                billboards[player].Enabled = true
                             else
-                                if billboards[player] then billboards[player]:Destroy(); billboards[player] = nil end
+                                local oldBill = billboards[player]
+                                if oldBill then oldBill:Destroy(); billboards[player] = nil end
                             end
                         else
-                            if billboards[player] then billboards[player]:Destroy(); billboards[player] = nil end
+                            local oldBill = billboards[player]
+                            if oldBill then oldBill:Destroy(); billboards[player] = nil end
                         end
                     end
                 end 
@@ -1504,7 +1517,7 @@ function loadMainHub(scale)
     end, true, flyEnabled)
     createRightSpeedInput("Fly Speed:", currentFlySpeed, 1, 300, function(val) currentFlySpeed = val end) 
 
-    createRightButton("Inf Jump", function(state) infJumpEnabled = state end, true, infJumpEnabled)
+    createRightButton("InfJump", function(state) infJumpEnabled = state end, true, infJumpEnabled)
     createRightButton("Noclip", function(state)
         noclipEnabled = state
         if not state and LocalPlayer.Character then
