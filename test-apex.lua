@@ -1,5 +1,5 @@
 -- ==========================================
--- APEX HUB - ULTIMATE MOBILE & MM2 FIX
+-- APEX HUB - FINAL FIXED SCRIPT (MM2)
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -7,8 +7,8 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
-local VirtualInputManager = game:GetService("VirtualInputManager")
 local GuiService = game:GetService("GuiService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera 
@@ -64,10 +64,6 @@ ScreenGui.Name = "APEXHUBGui"
 ScreenGui.ResetOnSpawn = false
 pcall(function() ScreenGui.Parent = CoreGui end)
 if not ScreenGui.Parent then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end 
-
-local function isMenuOpen()
-    return GuiService.MenuOpened or UserInputService:GetFocusedTextBox() ~= nil
-end
 
 local function bindClick(button, callback)
     local debounce = false
@@ -855,7 +851,7 @@ function loadMainHub(scale)
     task.spawn(function()
         while true do
             pcall(function()
-                if spamVoteMap1Enabled and not isMenuOpen() then
+                if spamVoteMap1Enabled and not GuiService:IsMenuOpen() then
                     local r = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                     if r then
                         r.CFrame = CFrame.new(25.8, 507, 49.4)
@@ -871,7 +867,7 @@ function loadMainHub(scale)
     task.spawn(function()
         while true do
             pcall(function()
-                if spamVoteMap2Enabled and not isMenuOpen() then
+                if spamVoteMap2Enabled and not GuiService:IsMenuOpen() then
                     local r = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                     if r then
                         r.CFrame = CFrame.new(13.9, 507, 49.4)
@@ -887,7 +883,7 @@ function loadMainHub(scale)
     task.spawn(function()
         while true do
             pcall(function()
-                if spamVoteMap3Enabled and not isMenuOpen() then
+                if spamVoteMap3Enabled and not GuiService:IsMenuOpen() then
                     local r = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                     if r then
                         r.CFrame = CFrame.new(1.5, 507, 49.4)
@@ -902,7 +898,7 @@ function loadMainHub(scale)
 
     -- Godmode / Anti-Death
     RunService.Stepped:Connect(function()
-        if autoCollectCoinsEnabled and not isMenuOpen() then
+        if autoCollectCoinsEnabled and not GuiService:IsMenuOpen() then
             if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
                 local humanoid = LocalPlayer.Character.Humanoid
                 if humanoid.Health < humanoid.MaxHealth and humanoid.Health > 0 then
@@ -915,7 +911,7 @@ function loadMainHub(scale)
         end
     end)
 
-    -- Hilfsfunktion: Prüft, ob sich der Spieler in der Lobby (RegularLobby) befindet
+    -- Hilfsfunktion: Prüft Lobby
     local function isInLobby()
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -937,7 +933,6 @@ function loadMainHub(scale)
         return false
     end
 
-    -- Hilfsfunktion: Prüft, ob der Spieler eine Waffe besitzt
     local function hasWeaponEquippedOrInInventory()
         local char = LocalPlayer.Character
         local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
@@ -958,10 +953,10 @@ function loadMainHub(scale)
         return scanContainer(char) or scanContainer(backpack)
     end
 
-    -- Auto Collect Coins Logik
+    -- Auto Collect Coins
     local function getActiveCoins()
         local coins = {}
-        if hasWeaponEquippedOrInInventory() or isInLobby() then
+        if hasWeaponEquippedOrInInventory() or isInLobby() or GuiService:IsMenuOpen() then
             return coins 
         end
 
@@ -1002,7 +997,7 @@ function loadMainHub(scale)
         while true do
             task.wait(0.3)
             pcall(function()
-                if autoCollectCoinsEnabled and not isInLobby() and not isMenuOpen() then
+                if autoCollectCoinsEnabled and not isInLobby() and not GuiService:IsMenuOpen() then
                     local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
                     local hrp = char:WaitForChild("HumanoidRootPart", 5)
                     
@@ -1025,7 +1020,7 @@ function loadMainHub(scale)
                                 tween:Play()
                                 
                                 while tween.PlaybackState == Enum.PlaybackState.Playing and autoCollectCoinsEnabled do
-                                    if not targetCoin.Parent or not LocalPlayer.Character or LocalPlayer.Character ~= char or hasWeaponEquippedOrInInventory() or isInLobby() or isMenuOpen() then
+                                    if not targetCoin.Parent or not LocalPlayer.Character or LocalPlayer.Character ~= char or hasWeaponEquippedOrInInventory() or isInLobby() or GuiService:IsMenuOpen() then
                                         tween:Cancel()
                                         break
                                     end
@@ -1042,10 +1037,15 @@ function loadMainHub(scale)
         end
     end)
 
-    -- MM2: Gun Drop ESP & Auto Grab
+    -- Gun Drop ESP & Auto Grab
+    local gunHighlights = {}
+    local gunBillboards = {}
+    local grabbedGuns = {} 
+    local isTeleportingForGun = false
+
     RunService.Stepped:Connect(function()
         pcall(function()
-            if isMenuOpen() then return end
+            if GuiService:IsMenuOpen() then return end
             for _, obj in ipairs(workspace:GetDescendants()) do
                 local nameLower = obj.Name:lower()
                 local isDroppedGun = false
@@ -1133,12 +1133,12 @@ function loadMainHub(scale)
         end)
     end)
 
-    -- KILL ALL FOR MURDERER (Mit Escape-Menü-Schutz)
+    -- KILL ALL FOR MURDERER
     task.spawn(function()
         while true do
-            task.wait(0.5)
+            task.wait(0.4)
             pcall(function()
-                if killAllMurderEnabled and not isMenuOpen() then
+                if killAllMurderEnabled and not GuiService:IsMenuOpen() then
                     local role, _ = getPlayerRole(LocalPlayer)
                     if role == "Murderer" then
                         local myChar = LocalPlayer.Character
@@ -1147,15 +1147,22 @@ function loadMainHub(scale)
                         if myRoot and knife then
                             knife.Parent = myChar
                             for _, p in ipairs(Players:GetPlayers()) do
-                                if not killAllMurderEnabled or isMenuOpen() then break end
+                                if not killAllMurderEnabled or GuiService:IsMenuOpen() then break end
                                 if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
                                     local pRole, _ = getPlayerRole(p)
                                     if pRole ~= "Murderer" then
-                                        myRoot.CFrame = p.Character.HumanoidRootPart.CFrame
+                                        local targetRoot = p.Character.HumanoidRootPart
+                                        local targetHum = p.Character:FindFirstChildOfClass("Humanoid")
+                                        -- Vorhersage für Sprünge (Jump-Prediction)
+                                        local predPos = targetRoot.Position + (targetRoot.AssemblyLinearVelocity * 0.1)
+                                        if targetHum and targetHum:GetState() == Enum.HumanoidStateType.Freefall then
+                                            predPos = predPos + Vector3.new(0, 2, 0)
+                                        end
+                                        myRoot.CFrame = CFrame.new(predPos)
                                         knife:Activate()
                                         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
                                         VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-                                        task.wait(0.05)
+                                        task.wait(0.04)
                                     end
                                 end
                             end
@@ -1166,12 +1173,12 @@ function loadMainHub(scale)
         end
     end)
 
-    -- SHERIFF AUTO KILL (Mit vorausberechneter Position für Jump-Antizipation & Menü-Schutz)
+    -- SHERIFF AUTO KILL (Verbesserte Jump-Prediction gegen Sprung-Mörder)
     task.spawn(function()
         while true do
-            task.wait(0.2)
+            task.wait(0.25)
             pcall(function()
-                if sheriffAutoKillEnabled and not isMenuOpen() then
+                if sheriffAutoKillEnabled and not GuiService:IsMenuOpen() then
                     local role, _ = getPlayerRole(LocalPlayer)
                     if role == "Sheriff" then
                         local myChar = LocalPlayer.Character
@@ -1180,28 +1187,30 @@ function loadMainHub(scale)
                         
                         if myRoot and gun then
                             for _, p in ipairs(Players:GetPlayers()) do
-                                if not sheriffAutoKillEnabled or isMenuOpen() then break end
+                                if not sheriffAutoKillEnabled or GuiService:IsMenuOpen() then break end
                                 if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
                                     local pRole, _ = getPlayerRole(p)
                                     if pRole == "Murderer" then
                                         local targetRoot = p.Character.HumanoidRootPart
                                         local targetHum = p.Character:FindFirstChildOfClass("Humanoid")
                                         
-                                        -- Antizipiert Sprünge und Geschwindigkeit (Fängt Spam-Jumping ab)
-                                        local jumpOffset = (targetHum and targetHum.JumpPower > 0 and targetRoot.AssemblyLinearVelocity.Y > 0) and Vector3.new(0, 3, 0) or Vector3.new(0, 0, 0)
-                                        local predictedPos = targetRoot.Position + (targetRoot.AssemblyLinearVelocity * 0.1) + jumpOffset
+                                        -- Korrektur gegen Jump-Spam: Berechnet die Bewegung und Sprunghöhe ein
+                                        local predPos = targetRoot.Position + (targetRoot.AssemblyLinearVelocity * 0.12)
+                                        if targetHum and targetHum:GetState() == Enum.HumanoidStateType.Freefall then
+                                            predPos = predPos + Vector3.new(0, 1.5, 0)
+                                        end
                                         
-                                        myRoot.CFrame = CFrame.new(predictedPos + (targetRoot.CFrame.LookVector * -5), predictedPos)
+                                        myRoot.CFrame = CFrame.new(predPos + Vector3.new(0, 0, 5))
                                         gun.Parent = myChar
                                         
                                         gun:Activate()
                                         pcall(function()
-                                            gun:FireServer(predictedPos)
+                                            gun:FireServer(predPos)
                                         end)
                                         VirtualInputManager:SendMouseButtonEvent(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2, 0, true, game, 0)
                                         VirtualInputManager:SendMouseButtonEvent(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2, 0, false, game, 0)
                                         
-                                        task.wait(0.05)
+                                        task.wait(0.08)
                                     end
                                 end
                             end
@@ -1212,16 +1221,18 @@ function loadMainHub(scale)
         end
     end)
 
-    -- 1ST PERSON AIMBOT (Mit Jump-Antizipation, Menü-Schutz und Joystick-Sicherheit)
+    -- 1ST PERSON AIMBOT (Mit Jump-Prediction und Roblox-Menü Schutz)
     RunService.RenderStepped:Connect(function()
         pcall(function()
-            if aimbotEnabled and not isMenuOpen() then
+            if GuiService:IsMenuOpen() then return end
+
+            if aimbotEnabled then
                 LocalPlayer.CameraMode = Enum.CameraMode.LockFirstPerson
             else
                 LocalPlayer.CameraMode = Enum.CameraMode.Classic
             end
 
-            if not aimbotEnabled or isMenuOpen() then return end
+            if not aimbotEnabled then return end
             if (Camera.Focus.Position - Camera.CFrame.Position).Magnitude > 3 then return end
 
             local myRole, _ = getPlayerRole(LocalPlayer)
@@ -1254,9 +1265,12 @@ function loadMainHub(scale)
                     rayParams.FilterType = Enum.RaycastFilterType.Exclude
                     rayParams.FilterDescendantsInstances = {myChar, targetPlayer.Character}
 
-                    -- Sprung- & Geschwindigkeits-Prädiktion
-                    local jumpOffset = (targetHum and targetRoot.AssemblyLinearVelocity.Y > 0) and Vector3.new(0, 2.5, 0) or Vector3.new(0, 0, 0)
-                    local predictedPos = targetPart.Position + (targetPart.AssemblyLinearVelocity * 0.08) + jumpOffset
+                    -- Jump Prediction für Aimbot
+                    local predictedPos = targetPart.Position + (targetPart.AssemblyLinearVelocity * 0.1)
+                    if targetHum and targetHum:GetState() == Enum.HumanoidStateType.Freefall then
+                        predictedPos = predictedPos + Vector3.new(0, 1.5, 0)
+                    end
+
                     local rayDir = predictedPos - myRoot.Position
                     local rayResult = workspace:Raycast(myRoot.Position, rayDir, rayParams)
 
@@ -1296,7 +1310,7 @@ function loadMainHub(scale)
     end) 
 
     UserInputService.JumpRequest:Connect(function()
-        if infJumpEnabled and not isMenuOpen() then
+        if infJumpEnabled and not GuiService:IsMenuOpen() then
             pcall(function()
                 local character = LocalPlayer.Character
                 local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -1307,6 +1321,7 @@ function loadMainHub(scale)
 
     RunService.Stepped:Connect(function()
         pcall(function()
+            if GuiService:IsMenuOpen() then return end
             for _, player in ipairs(Players:GetPlayers()) do
                 if player ~= LocalPlayer then
                     local character = player.Character
@@ -1385,17 +1400,17 @@ function loadMainHub(scale)
                     end
                 end 
 
-                if speedEnabled and not flyEnabled and not isMenuOpen() then
+                if speedEnabled and not flyEnabled then
                     hum.WalkSpeed = currentSpeed
                 end 
 
-                if noclipEnabled and not isMenuOpen() then
+                if noclipEnabled then
                     for _, part in ipairs(char:GetDescendants()) do
                         if part:IsA("BasePart") and part.CanCollide then part.CanCollide = false end
                     end
                 end 
 
-                if flyEnabled and not isMenuOpen() then
+                if flyEnabled then
                     if not bodyGyro or not bodyVelocity or bodyGyro.Parent ~= root then
                         startFly()
                     end
@@ -1546,5 +1561,5 @@ function loadMainHub(scale)
     createFlingDropdown(RightButtonsContainer) 
 
     Players.PlayerRemoving:Connect(cleanupPlayer)
-    print("APEX HUB successfully loaded wie ein juter gunge!")
+    print("APEX HUB successfully loaded like a bison!")
 end
