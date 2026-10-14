@@ -1,5 +1,5 @@
 -- ==========================================
--- APEX HUB - MOBILE SHOOTING & STUCK FIX (MM2)
+-- APEX HUB - FULLY FIXED SCRIPT (MM2)
 -- ==========================================
 
 local Players = game:GetService("Players")
@@ -8,6 +8,7 @@ local RunService = game:GetService("RunService")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local GuiService = game:GetService("GuiService")
 
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera 
@@ -932,6 +933,11 @@ function loadMainHub(scale)
         return false
     end
 
+    -- Hilfsfunktion: Prüft, ob das Roblox In-Game Menü (Escape Menu) offen ist
+    local function isMenuOpen()
+        return GuiService.MenuOpened
+    end
+
     -- Hilfsfunktion: Prüft, ob der Spieler eine Waffe besitzt
     local function hasWeaponEquippedOrInInventory()
         local char = LocalPlayer.Character
@@ -997,7 +1003,7 @@ function loadMainHub(scale)
         while true do
             task.wait(0.3)
             pcall(function()
-                if autoCollectCoinsEnabled and not isInLobby() then
+                if autoCollectCoinsEnabled and not isInLobby() and not isMenuOpen() then
                     local char = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
                     local hrp = char:WaitForChild("HumanoidRootPart", 5)
                     
@@ -1020,7 +1026,7 @@ function loadMainHub(scale)
                                 tween:Play()
                                 
                                 while tween.PlaybackState == Enum.PlaybackState.Playing and autoCollectCoinsEnabled do
-                                    if not targetCoin.Parent or not LocalPlayer.Character or LocalPlayer.Character ~= char or hasWeaponEquippedOrInInventory() or isInLobby() then
+                                    if not targetCoin.Parent or not LocalPlayer.Character or LocalPlayer.Character ~= char or hasWeaponEquippedOrInInventory() or isInLobby() or isMenuOpen() then
                                         tween:Cancel()
                                         break
                                     end
@@ -1093,7 +1099,7 @@ function loadMainHub(scale)
                             if gunBillboards[obj] then gunBillboards[obj]:Destroy(); gunBillboards[obj] = nil end
                         end
 
-                        if autoGrabGunEnabled and not grabbedGuns[obj] then
+                        if autoGrabGunEnabled and not grabbedGuns[obj] and not isMenuOpen() then
                             local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                             if myRoot then
                                 local dist = (targetPart.Position - myRoot.Position).Magnitude
@@ -1132,12 +1138,12 @@ function loadMainHub(scale)
         end)
     end)
 
-    -- KILL ALL FOR MURDERER (Mit direktem Mobile-Input-Trigger)
+    -- KILL ALL FOR MURDERER (Pausiert, wenn das Escape-Menü offen ist)
     task.spawn(function()
         while true do
             task.wait(0.5)
             pcall(function()
-                if killAllMurderEnabled then
+                if killAllMurderEnabled and not isMenuOpen() then
                     local role, _ = getPlayerRole(LocalPlayer)
                     if role == "Murderer" then
                         local myChar = LocalPlayer.Character
@@ -1146,7 +1152,7 @@ function loadMainHub(scale)
                         if myRoot and knife then
                             knife.Parent = myChar
                             for _, p in ipairs(Players:GetPlayers()) do
-                                if not killAllMurderEnabled then break end
+                                if not killAllMurderEnabled or isMenuOpen() then break end
                                 if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
                                     local pRole, _ = getPlayerRole(p)
                                     if pRole ~= "Murderer" then
@@ -1165,12 +1171,12 @@ function loadMainHub(scale)
         end
     end)
 
-    -- SHERIFF AUTO KILL (Mobil-fix: Simuliert echten Touch/Click direkt auf den Bildschirm für MM2)
+    -- SHERIFF AUTO KILL (Pausiert beim Escape-Menü)
     task.spawn(function()
         while true do
             task.wait(0.3)
             pcall(function()
-                if sheriffAutoKillEnabled then
+                if sheriffAutoKillEnabled and not isMenuOpen() then
                     local role, _ = getPlayerRole(LocalPlayer)
                     if role == "Sheriff" then
                         local myChar = LocalPlayer.Character
@@ -1179,7 +1185,7 @@ function loadMainHub(scale)
                         
                         if myRoot and gun then
                             for _, p in ipairs(Players:GetPlayers()) do
-                                if not sheriffAutoKillEnabled then break end
+                                if not sheriffAutoKillEnabled or isMenuOpen() then break end
                                 if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
                                     local pRole, _ = getPlayerRole(p)
                                     if pRole == "Murderer" then
@@ -1191,7 +1197,6 @@ function loadMainHub(scale)
                                         pcall(function()
                                             gun:FireServer(targetRoot.Position)
                                         end)
-                                        -- Simulierte Bildschirmberührung für mobile Schuss-Buttons in MM2
                                         VirtualInputManager:SendMouseButtonEvent(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2, 0, true, game, 0)
                                         VirtualInputManager:SendMouseButtonEvent(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2, 0, false, game, 0)
                                         
@@ -1206,16 +1211,16 @@ function loadMainHub(scale)
         end
     end)
 
-    -- 1ST PERSON AIMBOT (Mit Mobile Touch-Trigger)
+    -- 1ST PERSON AIMBOT (Pausiert sofort, wenn das Escape-Menü offen ist, behebt Joy-Stick & UI-Scroll-Fehler)
     RunService.RenderStepped:Connect(function()
         pcall(function()
-            if aimbotEnabled then
+            if aimbotEnabled and not isMenuOpen() then
                 LocalPlayer.CameraMode = Enum.CameraMode.LockFirstPerson
             else
                 LocalPlayer.CameraMode = Enum.CameraMode.Classic
             end
 
-            if not aimbotEnabled then return end
+            if not aimbotEnabled or isMenuOpen() then return end
             if (Camera.Focus.Position - Camera.CFrame.Position).Magnitude > 3 then return end
 
             local myRole, _ = getPlayerRole(LocalPlayer)
@@ -1537,5 +1542,5 @@ function loadMainHub(scale)
     createFlingDropdown(RightButtonsContainer) 
 
     Players.PlayerRemoving:Connect(cleanupPlayer)
-    print("APEX HUB successfully loaded JA!")
+    print("APEX HUB successfully loaded like a good boy!")
 end
